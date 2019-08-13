@@ -1,0 +1,4 @@
+"0","temp_b = df[,""Ketty_Perry""]
+"
+"2","Error in `[.default`(df, , ""Ketty_Perry"") : subscript out of bounds
+"

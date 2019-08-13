@@ -1,0 +1,3 @@
+"0","tpages %>% filter(str_detect(article, ""Justin"")) %>%"
+"0","  filter(access == ""all-access"") %>%"
+"0","  filter(agent == ""all-agents"")"
