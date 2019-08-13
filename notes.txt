@@ -1,0 +1,23 @@
+# (1) all agent from different countries 
+# use US for every model, add other countries for Var() and Armax(), armia(xreg)
+
+# (2) movie and stars 
+# using us for everything 
+
+# naive method -> naive()
+
+# exponential smoothing -> hw() , additive, multiplicative, 
+
+# auto.arima() 
+
+# pacf() -> arima()   
+
+# state space -> ets()
+
+# regression arima error
+
+# arimax()
+
+# Var() model on celebrities, since they influence each other. 
+
+# arfima? 
