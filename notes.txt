@@ -10,7 +10,7 @@
 
 # auto.arima() 
 
-# pacf() -> arima()   
+# acf(), pacf(), eacf() -> arima()   
 
 # state space -> ets()
 
