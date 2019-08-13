@@ -1,0 +1,42 @@
+## part 1 - data selection 
+
+# (1) all agent from different countries 
+# use US for every model, add other countries for Var() and Armax(), armia(xreg)
+
+# rick morty (Rick y Morty-es-70584 - 2016/7- end high trend, Rick and Morty-en-41760) 
+# planb-serena williams (en-40653, fr-25282, es-91580, de-138740)
+
+# 108525
+# 106121
+# Appendicitis - 105809
+
+# (2) movie and stars 
+# using us for everything 
+
+# Travis Fimmel - 41812
+# Vikings (TV)-39556 (ended in 2017) 
+# Angelina Jolie - 37376 (ex-wife)
+
+
+## part 2  - modeling 
+
+# naive method -> naive()
+
+# exponential smoothing -> hw() , additive, multiplicative, 
+
+# auto.arima() 
+
+# acf(), pacf(), eacf() -> arima()   
+
+# state space -> ets()
+
+# regression arima error
+
+# arimax()
+
+# Var() model on celebrities, since they influence each other. 
+
+# arfima? 
+
+
+## part 3 
