@@ -1,4 +1,5 @@
 ## part 1 - data selection 
+start 2015/7/1
 
 # (1) all agent from different countries 
 # use US for every model, add other countries for Var() and Armax(), armia(xreg)
@@ -10,15 +11,15 @@
 # check the seasonality manually, S could be big.  
 
 # 108525 
-# 106121
+# 106121 
 # Appendicitis - 105809
 
 # (2) movie and stars 
 # using us for everything 
 
-# Travis Fimmel - 41812
+# Travis Fimmel - 41812 
 # Vikings (TV)-39556 (ended in 2017) 
-# Angelina Jolie - 37376 (ex-wife)
+# Angelina Jolie - 37376 (ex-wife, divorce )
 
 ## part 2  - modeling 
 
