@@ -125,7 +125,17 @@ error.arima.100 <- InvBoxCox(f.arima.100$mean,lambda=lambda1)-test[,1]
 # fit auto.arima on en
 #m2=auto.arima(annual.en,seasonal=T, D=1)
 #summary(m2)
+
+# reconstruct ts with 30, assume weekly seasonality 
+### weekly is better.
+#monthly.en=ts(transformed.en,frequency=30)
+# fit auto.arima on en
+#m.monthly=auto.arima(monthly.en,seasonal=T, D=1)
+#summary(m.monthly)
+#checkresiduals(m.monthly)
 ```
+
+
 
 ## weekly 
 ```{r weekly}
