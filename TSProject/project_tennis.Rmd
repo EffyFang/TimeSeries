@@ -59,8 +59,11 @@ autoplot(transformed.fr)
 autoplot(transformed.es)
 autoplot(transformed.de)
 ```
-
-
+## stationary test 
+```{r}
+kpss.test(transformed.en) #is level stationary  
+adf.test(transformed.en)
+```
 # model fitting 
 
 ## exponential smoothing
