@@ -1,0 +1,269 @@
+---
+title: "Project_Tennis"
+author: "Effy Fang"
+date: "August 19, 2019"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(warn = -1)
+```
+
+```{r package}
+library(fpp)
+library(TSA)
+library(ggplot2)
+library(vars)
+```
+
+## data preparation
+```{r q1}
+datapath <- "C:/Users/effyf/Documents/MSCA/time series/project/TimeSeries-Project/TSProject"
+project.dat<-readRDS(file=paste(datapath,"new_train.rda",sep="/"))
+head(project.dat)
+tennis.en=as.integer(project.dat[,6])
+tennis.fr=as.integer(project.dat[,7])
+tennis.es=as.integer(project.dat[,8])
+tennis.de=as.integer(project.dat[,9])
+tennis=cbind(en=tennis.en,es=tennis.es,fr=tennis.fr,de=tennis.de)
+
+
+# convert to ts
+ts.tennis=ts(tennis,frequency = 1) #,start=c(2015,7)) 
+train <- window(ts.tennis, start=1, end=775)
+test <-window(ts.tennis,start=776) # test on the last 4 weeks
+
+ts.weekly <- ts(tennis, frequency = 7)
+train.weekly <- window(ts.weekly, end=c(111,5))
+test.weekly <- window(ts.weekly, start=c(111,6))
+tsdisplay(train)
+```
+the variance is not stable, need boxcox transformation 
+
+```{r boxcox}
+lambda1 <- BoxCox.lambda(train[,1])
+transformed.en <- BoxCox(train[,1],lambda=lambda1)
+lambda2 <- BoxCox.lambda(train[,2])
+transformed.fr <- BoxCox(train[,2],lambda=lambda2)
+lambda3 <- BoxCox.lambda(train[,3])
+transformed.es <- BoxCox(train[,3],lambda=lambda3)
+lambda4 <- BoxCox.lambda(train[,4])
+transformed.de <- BoxCox(train[,4],lambda=lambda4)
+autoplot(transformed.en)
+autoplot(transformed.fr)
+autoplot(transformed.es)
+autoplot(transformed.de)
+```
+
+
+# model fitting 
+
+## exponential smoothing
+
+```{r exp}
+#m.ses <- ses(transformed.en)
+#summary(m.ses)
+#m.holt <- holt(transformed.en)
+#summary(m.holt)
+m.ets <- ets(transformed.en) # best amoung the 3
+summary(m.ets) 
+checkresiduals(m.ets)
+```
+residuals do not look good. we'll not consider this model.
+```{r}
+f.ets=forecast(m.ets,h=28)
+error.ets=InvBoxCox(f.ets$mean,lambda=lambda1)-test[,1]
+#unique(InvBoxCox(f.ets$mean,lambda=lambda1))
+#tail(tennis.en)
+```
+
+## arima
+```{r arima}
+# fit auto.arima on en
+m.auto=auto.arima(train[,1],lambda=lambda1)
+summary(m.auto)
+```
+
+```{r}
+checkresiduals(m.auto)
+```
+residuals look okay, pass ljung-box test if we lower the significance level. 
+```{r}
+f.auto <- forecast(m.auto,h=28)
+error.auto <- f.auto$mean-test[,1]
+#plot(forecast(m.auto,h=7),include=100)
+```
+## arima 
+```{r}
+eacf(transformed.en)
+```
+```{r}
+m.1.0 <- Arima(transformed.en, order=c(1,0,0))#, lambda=lambda1)
+m.1.1 <- Arima(transformed.en, order=c(1,0,1))#, lambda=lambda1)
+summary(m.1.0) # better 
+summary(m.1.1)
+```
+```{r}
+checkresiduals(m.1.0)
+checkresiduals(m.1.1)
+```
+AIC from arima(1,0,0) is slightly lower but not different by much. However the redisual p-value is far from passing the ljung-box test. so we'll not consider this model. 
+```{r}
+f.arima.100 <- forecast(m.1.0,h=28)
+error.arima.100 <- InvBoxCox(f.arima.100$mean,lambda=lambda1)-test[,1]
+```
+## sarima
+```{r seasonal arima}
+# reconstruct ts with 365, assume annual seasonality 
+### not good! 
+#annual.en=ts(transformed.en,frequency=365)
+# fit auto.arima on en
+#m2=auto.arima(annual.en,seasonal=T, D=1)
+#summary(m2)
+```
+
+## weekly 
+```{r weekly}
+# fit auto.arima on weekly ts 
+m.weekly=auto.arima(train.weekly[,1],seasonal=T,lambda=lambda1)
+summary(m.weekly)
+```
+AIC is lower and loglikelyhood is better. -6720 to -6726
+
+```{r}
+checkresiduals(m.weekly)
+```
+the residuals also look like white noise and pass ljung-box test. 
+
+```{r}
+f.sarima <- forecast(m.weekly,h=28)
+error.sarima <- f.sarima$mean-test.weekly[,1]
+```
+
+## arima error regression 
+adding the influence from es, fr, and de pages. 
+```{r xreg}
+m.reg <- auto.arima(train.weekly[,1],xreg =cbind(transformed.es, transformed.fr, transformed.de),seasonal=T, lambda=lambda1)
+summary(m.reg)
+```
+
+```{r}
+checkresiduals(m.reg)
+```
+further lowers AIC, residuals look good. 
+
+```{r}
+transformed.test=cbind(transformed.es=BoxCox(test[,2],lambda=lambda2),
+                       transformed.fr=BoxCox(test[,3],lambda=lambda3),
+                       transformed.de=BoxCox(test[,4],lambda=lambda4))
+f.xreg <- forecast(m.reg,xreg=transformed.test,h=28)
+error.xreg <- f.xreg$mean-test.weekly[,1]
+```
+
+## VAR
+```{r var}
+transformed <- cbind(transformed.en, transformed.es, transformed.fr, transformed.de)
+VARselect(transformed) 
+# 4 selected by aic, 2 by bic
+m.var <- VAR(transformed,p=4,type = "both")
+summary(m.var)
+```
+
+```{r}
+residuals=residuals(m.var)
+par(mfrow=c(2,2))
+Acf(residuals[,1])
+Acf(residuals[,2])
+Acf(residuals[,3])
+Acf(residuals[,4])
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+hist(residuals[,1])
+hist(residuals[,2])
+hist(residuals[,3])
+hist(residuals[,4])
+```
+
+```{r}
+Box.test(residuals[,1],type="Ljung-Box")
+Box.test(residuals[,2],type="Ljung-Box")
+Box.test(residuals[,3],type="Ljung-Box")
+Box.test(residuals[,4],type="Ljung-Box")
+```
+all the residuals look good 
+
+```{r}
+f.var <- forecast(m.var, h=28)
+error.var = InvBoxCox(f.var$forecast$transformed.en$mean, lambda=lambda1)-test[,1]
+```
+
+## fourier
+```{r fourier}
+transformed.weekly.en=ts(transformed.en,frequency = 7)
+harmonic <- fourier(transformed.weekly.en,K=3)
+m.fourier <- auto.arima(transformed.weekly.en,xreg=harmonic, seasonal=F)
+summary(m.fourier)
+```
+
+```{r}
+checkresiduals(m.fourier)
+```
+
+```{r}
+new.harmonic <- fourier(transformed.weekly.en,K=3,h=28)
+f.fourier <- forecast(m.fourier,xreg=new.harmonic, h=28)
+error.fourier <- InvBoxCox(f.fourier$mean, lambda=lambda1)-as.numeric(test[,1])
+```
+
+
+## TBATS
+```{r tbats}
+m.tbats <- tbats(transformed.en)
+print(m.tbats)
+plot(forecast(m.tbats, h=7))
+checkresiduals(m.tbats)
+```
+
+
+## model comparison 
+```{r}
+logLik(m.var)
+aicc <- cbind(ets=m.ets$aicc, auto.arima=m.auto$aicc, arima.100=m.1.0$aicc, 
+          sarima=m.weekly$aicc, xreg=m.reg$aicc, varma.AIC =AIC(m.var), fourier = m.fourier$aicc) 
+aicc
+sort(aicc)
+bic  <- cbind(ets=m.ets$bic, auto.arima=m.auto$bic, arima.100=m.1.0$bic, 
+          sarima=m.weekly$bic, xreg=m.reg$bic, varma =BIC(m.var), fourier = m.fourier$bic) 
+bic
+ll <-  cbind(ets=m.ets$loglik, auto.arima=m.auto$loglik, arima.100=m.1.0$loglik, 
+          sarima=m.weekly$loglik, xreg=m.reg$loglik, varma =logLik(m.var), fourier = m.fourier$loglik) 
+ll
+rmse.ets <- sqrt(mean(error.ets^2,na.rm=TRUE))
+rmse.auto <- sqrt(mean(error.auto^2,na.rm=TRUE))
+rmse.arima.100 <- sqrt(mean(error.arima.100^2,na.rm=TRUE))
+rmse.weekly <- sqrt(mean(error.sarima^2,na.rm=TRUE))
+rmse.xreg <- sqrt(mean(error.xreg^2,na.rm=TRUE))
+rmse.varma <- sqrt(mean(error.var^2,na.rm=TRUE))
+rmse.fourier <- sqrt(mean(error.fourier^2,na.rm=TRUE))
+
+rmse <- c(ets=rmse.ets, auto.arima = rmse.auto, arima.100=rmse.arima.100,
+         sarima=rmse.weekly, xreg=rmse.xreg, varma=rmse.varma, fourier=rmse.fourier)
+rmse
+data <- rbind(aicc,bic,ll,rmse)
+comparison <- as.data.frame(t(data),row.name=c('ets','auto.arima','arima(1,0,0)','sarima(weekly)', 'regression with arima error', 'varma', 'fourier'))
+colnames(comparison)<-c('aic', 'bic', 'loglik', 'rmse')
+comparison[order(comparison$aic),]
+```
+
+
+```{r}
+comparison[order(comparison$rmse),]
+```

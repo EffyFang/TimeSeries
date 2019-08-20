@@ -39,7 +39,7 @@ start 2015/7/1
 
 # Var() model on celebrities, since they influence each other. 
 
-# arfima? 
+# arfima()
 
 
 ## part 3 
