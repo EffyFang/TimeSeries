@@ -1,0 +1,225 @@
+---
+title: "Untitled"
+author: "Ying Huang"
+date: "8/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(TSA)
+library(tseries)
+library(fpp)
+library(forecast)
+```
+
+Read Rick and Morty Data
+```{r}
+project.ts <- readRDS("~/Documents/GitHub/TimeSeries-Project/TSProject/new_train.rds")
+project.ts <- ts(project.ts)
+rick_morty_es <- ts(as.numeric(project.ts[,'rick_y_morty']))
+rick_morty_es <- window(rick_morty_es,start=400)
+rick_morty_en <- ts(as.numeric(project.ts[,'rick_and_morty']))
+rick_morty_en <- window(rick_morty_en,start=400)
+```
+
+###Plot the data
+```{r}
+RickMorty <- cbind(Spanish = rick_morty_es, English = rick_morty_en)
+tsdisplay(RickMorty)
+```
+
+
+##Prepare the dataset, transform it to weekly dataset.
+```{r}
+rick_morty_es_weekly <- ts(rick_morty_es, frequency = 7)
+tsdisplay(rick_morty_es_weekly)
+#rick_morty_es_monthly <- ts(rick_morty_es, frequency = 30)
+#tsdisplay(rick_morty_es_monthly)
+```
+
+First, we forcus on the weekly data. 
+```{r}
+lambda_weekly <- BoxCox.lambda(rick_morty_es_weekly)
+lambda_weekly
+weekly_es_trans <- BoxCox(rick_morty_es_weekly,lambda_weekly)
+autoplot(weekly_es_trans)
+#check stationary
+kpss.test(weekly_es_trans)
+kpss.test(diff(weekly_es_trans)) #pass level
+kpss.test(diff(weekly_es_trans),null = 'Trend') #pass trend
+#we need d=1
+```
+
+Split train and test data
+```{r}
+weekly_train <- window(weekly_es_trans,end=c(55,7))
+weekly_test <- window(rick_morty_es_weekly,start=c(56,1))
+h <- 19
+```
+
+#Fit the model
+##Start with Auto.Arima.
+```{r}
+arima.fit <- auto.arima(weekly_train,d=1,seasonal = TRUE) #211,200
+arima.fit$aicc #-2069.29
+arima.fit$aic #-2069.52
+summary(arima.fit)
+checkresiduals(arima.fit)
+```
+##Prediction from auto arima
+```{r}
+autoarima <- forecast(arima.fit,h)
+autoplot(autoarima) 
+automean <- InvBoxCox(autoarima$mean,lambda_weekly)
+autoplot(automean)+autolayer(weekly_test)
+sqrt(sum((weekly_test-automean)^2)/h) #324.9043
+auto <- accuracy(automean,weekly_test)
+```
+
+##Arima from eacf
+```{r}
+eacf(weekly_train)
+arima212 <- Arima(weekly_train,order=c(2,1,2),seasonal = list(order=c(2,0,0)))
+arima212 #Aic -2069.27
+arima(weekly_train,order=c(3,1,2),seasonal = list(order=c(2,0,0))) #Aic -2070.36
+checkresiduals(arima212)
+arima212fit <- forecast(arima212,h)
+autoplot(arima212fit) 
+arimamean <- InvBoxCox(arima212fit$mean,lambda_weekly)
+autoplot(arimamean)+autolayer(weekly_test)
+sqrt(sum((weekly_test-arimamean)^2)/h) #346.5
+arima <- accuracy(arimamean,weekly_test)
+```
+
+##Xreg
+```{r}
+rick_morty_en_weekly <- ts(rick_morty_en, frequency = 7)
+tsdisplay(rick_morty_en_weekly)
+lambda_en_weekly <- BoxCox.lambda(rick_morty_en_weekly)
+weekly_en_trans <- BoxCox(rick_morty_en_weekly,lambda_en_weekly)
+tsdisplay(weekly_en_trans)
+kpss.test(weekly_en_trans)
+kpss.test(diff(weekly_en_trans)) #pass level
+kpss.test(diff(weekly_en_trans),null = 'Trend') #pass trend
+en_weekly_train <- window(weekly_en_trans,end=c(55,7))
+en_weekly_test <- window(weekly_en_trans,start=c(56,1))
+
+xreg.fit <- auto.arima(weekly_train,d=1,seasonal = TRUE,xreg = en_weekly_train)
+xreg.fit$aic #-2174.52
+summary(xreg.fit) 
+checkresiduals(xreg.fit)
+```
+
+###Prediction from Xreg
+```{r}
+xreg <- forecast(xreg.fit,h,xreg=en_weekly_test)
+autoplot(xreg)
+xregmean <- InvBoxCox(xreg$mean,lambda_weekly)
+autoplot(xregmean)+autolayer(weekly_test)
+sqrt(sum((weekly_test-xregmean)^2)/h) #251.9926
+xreg <- accuracy(xregmean,weekly_test)
+```
+
+
+##VARMA model
+```{r}
+library(vars)
+data <- cbind(weekly_train,en_weekly_train)
+VARselect(data,type = 'both')
+var.fit <- VAR(data,p=8,type = 'both')
+var.fit
+AIC(var.fit) #-9742.809
+acf(residuals(var.fit)[,1])
+acf(residuals(var.fit)[,2]) #english trains still have spikes. 
+varfit <- forecast(var.fit,h)
+autoplot(varfit) 
+varmean <- InvBoxCox(varfit$forecast$weekly_train$mean,lambda_weekly)
+autoplot(varmean) + autolayer(weekly_test)
+sqrt(sum((weekly_test-varmean)^2)/h) #447.1625
+var <- accuracy(varmean,weekly_test)
+```
+
+
+##Naive method
+```{r}
+naive <- naive(weekly_train,h)
+autoplot(naive)
+naivemean <- InvBoxCox(naive$mean,lambda_weekly)
+autoplot(naivemean) + autolayer(weekly_test)
+sqrt(sum((weekly_test-naivemean)^2)/h) #490.2889
+naiveacc <- accuracy(naivemean,weekly_test)
+
+snaive <- snaive(weekly_train,h)
+autoplot(snaive)
+snaivemean <- InvBoxCox(snaive$mean,lambda_weekly)
+autoplot(snaivemean) + autolayer(weekly_test)
+sqrt(sum((weekly_test-snaivemean)^2)/h) #402.7447
+snaiveacc <- accuracy(snaivemean,weekly_test)
+
+```
+
+
+##Holt-Winter
+```{r}
+hw1 <- hw(weekly_train,h,seasonal = 'additive', damped = TRUE)
+hw2 <- hw(weekly_train,h,seasonal = 'multi', damped = TRUE)
+hw3 <- hw(weekly_train,h,seasonal = 'addi', damped = FALSE)
+hw4 <- hw(weekly_train,h,seasonal = 'multi', damped = FALSE)
+hw5 <- hw(weekly_train,h,seasonal = 'multi', damped = FALSE, exponential = TRUE)
+summary(hw1) #-868.2580
+summary(hw2) #-880.1103 
+summary(hw3) #-868.8776
+summary(hw4) #-876.5430
+summary(hw5) #-881.1042  choose this one
+checkresiduals(hw5) #failed
+autoplot(hw5)
+
+hwmean <- InvBoxCox(hw5$mean,lambda_weekly)
+autoplot(hwmean) + autolayer(weekly_test)
+hwacc <- accuracy(hwmean,weekly_test) #238.1855
+```
+
+##TBATS
+```{r}
+tbats(weekly_train)
+
+```
+
+
+
+##Fourier & harmonic
+```{r}
+#install.packages('fpp2')
+library(fpp2)
+harmonics <- fourier(weekly_train, K=3)
+fit <- auto.arima(weekly_train,xreg=harmonics,seasonal = FALSE)
+summary(fit) #aic -2100.33 
+
+newharmonics <- fourier(weekly_train, K=3,h)
+harmonicfit <- forecast(fit,h,xreg = newharmonics)
+autoplot(harmonicfit) 
+harmonicmean <- InvBoxCox(harmonicfit$mean,lambda_weekly)
+autoplot(harmonicmean) + autolayer(weekly_test)
+sqrt(sum((weekly_test-harmonicmean)^2)/h) #231.0847
+harmonic <- accuracy(harmonicmean,weekly_test)
+
+```
+
+
+
+#Comparasion
+```{r}
+comparasion <- rbind(Auto = auto, Arima = arima,Xreg = xreg, VAR = var, Naive = naiveacc, SNaive = snaiveacc, harmonic,hwacc)
+comparasion <- as.data.frame(comparasion, row.names = c('AutoArima','Arima212','Regression with En','VAR','Naive','SNaive','Dynamic Harmonic','Holt-Winters'))
+comparasion
+
+```
+
+
+
+
+
+
+
+
