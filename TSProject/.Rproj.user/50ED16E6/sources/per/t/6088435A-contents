@@ -1,0 +1,165 @@
+---
+title: "hw7"
+author: "Kai Li"
+date: "August 12, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message= FALSE}
+# load libraries
+
+library(caret)
+library(TSA)
+library(pls)
+library(forecast)
+library(tseries)
+library(zoo)
+library(ggplot2)
+library(reshape2) 
+library(vars)
+```
+
+### Question 1:
+Load the data and calculate the average cost of a night’s accommodation in Victoria each month (i.e. Cost variable).
+  a) Plot the CPI and Cost time series.
+  
+```{r}
+
+load("C:/Kai/UChicago/time_series/hw/motel.rda")
+
+cost = motel[,"Takings"]*1000 / motel[,"Roomnights"]
+CPI = motel[,"CPI"]
+```
+
+
+```{r}
+plot(cost, ylab="cost")
+plot(CPI, ylab="CPI")
+
+```
+
+
+
+
+
+  b) Plot the Cost time series against the CPI time series and calculate the correlation between CPI and Cost.              
+  Discuss your results and explain why the logarithms of both variables need to be taken before fitting any models.           
+```{r}
+
+plot(x = cost,y = CPI , ylab="CPI")
+cor(CPI, cost )
+
+```
+From the plot, we can see the CPI and cost has a strong positive correlation but it is not evenly distributed. More points are concentrated on the low and high-cost area and fewer dots are located in the middle. Therefore, I will consider using log-transformation to remove nonstationarity observations.                      
+
+
+
+  c) Plot the log(CPI) and log(Cost) time series and calculate the correlation between the logarithms of both CPI and Cost.
+```{r}
+plot(x = log(cost),y = log(CPI) , ylab="log_CPI")
+cor(log(CPI), log(cost))
+
+```
+After the log-transformation, the distribution of CPI among all costs more evenly distributed, though they still have more points concentrated on the high-cost area. Comparing correlations, log-transformed data has higher correlation but they are pretty similar. It still shows a strong positive linear correlation between CPI and cost.          
+
+
+
+
+
+### Question 2:
+  a) Use the linear model with time series components function tslm() to fit a linear model to the log(Cost) time series as a function of the log(CPI) time series (i.e., CPI -> independent variable, Cost -> Dependent variable).
+  b) Plot log(CPI) against log(Cost) and the fitted trend.
+  c) Use the summary() function to summarize the generated model , and the checkresiduals() function to evaluate the residuals.
+  Discuss your results.
+
+```{r}
+model = tslm(log(cost) ~ log(CPI))
+
+plot(log(CPI), log(cost)) + abline(model, col = "blue")
+
+summary(model)
+checkresiduals(model)
+
+
+```
+From the tslm function, we can see the p-value is <2.2e-16, log(CPI) and intercept are significant and high R^2. Therefore, it is a good linear fit model. However, when checking its residual, the ACF plots has lots of spikes outside the upper boundaries, so it's not white noise. Therefore, I consider some autocorrelation still contained in this model's residual. Moreover, in the residual, there is still a seasonal trend included.      
+
+
+
+### Question 3:
+Use the auto.arima() function to fit an appropriate regression model with ARIMA errors to the Cost and CPI time series(i.e., CPI -> Independent variable, Cost -> Dependent variable). Set the Order of seasonal-differencing argument, D, to 1 and the ‘lambda’ argument to 0 to reflect a logarithmic transformation.
+  a) Use the summary() function to summarize the generated model.
+  b) Use the checkresiduals() function to evaluate the residuals.
+Discuss your results.
+```{r}
+
+arima_model = auto.arima(cost, xreg = log(CPI), D = 1, lambda = 0)
+summary(arima_model)
+
+checkresiduals(arima_model)
+
+```
+When fitting the auto.arima function, it give model with p,d,q and P,D,Q = (1,0,1)(1,1,1)[12]. The p-value for the Ljung-Box test is 0.275 > 0.05, so it failed to reject the null hypothesis. Thus the residuals are independently distributed. When we check the ACF plot, there is only one spike outside of the upper boundary. It is a pretty good model for this data, but they're still some information contained within residuals.        
+
+
+
+
+### Question 4:
+  a) Calculate and plot a naïve forecast of CPI for the next 18 months.
+  
+```{r}
+
+naive_pred = naive(CPI, h = 18)
+plot(naive_pred)
+
+
+```
+ 
+ 
+  b) Forecast and plot the average price per room (i.e., Cost) for the next 18 months using the fitted model from Question 3 and the naïve forecast of CPI.
+  Discuss your results.
+```{r}
+
+autoplot(forecast(arima_model, xreg = log(naive_pred$mean), h = 18))
+
+```
+Use the naive prediction of CPI as the external regressor. The CPI is the same in the prediction period, so the prediction of cost captures seasonality and trend from previous the cost and removing the effect of CPI.      
+
+
+
+### Question 5:
+a) Use the VAR() function to fit a VAR(10) model to the log(Cost) and log(CPI) time series. Set the ‘type’ and ‘season’ arguments to 'both' and 12, respectively.
+```{r}
+
+new_df = cbind(log(cost), log(CPI))
+VARselect(new_df, lag.max = 10, type ="both", season = 12)$selection
+
+var_model = VAR(new_df, p = 10, type = "both", season =12)
+```
+
+
+b) Forecast and plot the average price per room (i.e., Cost) and CPI for the next 18 months using your fitted model.
+```{r}
+var_pred = forecast(var_model, h = 18)
+plot(var_pred)
+
+plot(exp(var_pred$forecast$log.CPI.$mean))
+```
+
+c) Plot the acf of residuals.
+Discuss your results.
+```{r}
+#summary(var_model)
+acf(residuals(var_model)[,1], ylab = c("log_cost"))
+
+acf(residuals(var_model)[,2], ylab = c("log_CPI"))
+```
+Now, we use VAR() model to predict the CPI rather than the simple naive method. Comparing with the naive method, the CPI is increasing rather than a constant. When plot ACF for residuals, we can see both cost and CPI's residuals are inside of the boundaries. Thus, we consider residuals are white noises for both cost and CPI.             
+By comparing models above, the pure linear model shows autocorrelation within residuals, because the ACF plot has lots of spikes outside of the boundary. The auto.arima model is a good time series model passing the Ljung-Box test and has only one spike outside the boundary. But it uses the navie method to predict the CPI. For the VAR model, it uses predicted CPI rather than a constant, and its ACFs shows no spikes outside the boundary. Therefore, it is white noise. By comparing three models, I would say the VAR() model has better performance in fitting the dataset by showing pure white noise in residuals.         
+
+
+

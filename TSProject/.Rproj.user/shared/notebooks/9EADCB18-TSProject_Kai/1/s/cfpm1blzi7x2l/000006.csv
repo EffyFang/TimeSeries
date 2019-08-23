@@ -1,0 +1,5 @@
+"0","df = readRDS(""~/GitHub/TimeSeries-Project/TSProject/new_train.rds"")"
+"0","df1 = df[,10:12]"
+"0","lan = as.numeric(df1[,1])"
+"0","jia = as.numeric(df1[,2])"
+"0","shen = as.numeric(df1[,3])"

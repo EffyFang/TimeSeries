@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1566245374199.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3488858168",
+    "id" : "38B2ECC9",
+    "lastKnownWriteTime" : 1563409279,
+    "last_content_update" : 1563409279,
+    "path" : "C:/Kai/UChicago/time_series/hw/hw3.Rmd",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "99,0",
+        "scrollLine" : "95"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

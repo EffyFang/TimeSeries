@@ -1,0 +1,4 @@
+"0","pred_lan = pred$fcst$lan_train_weekly[,1]"
+"0","pred_lan = ts(pred_lan, start = c(114, 1), end = c(115,5), frequency = 7)"
+"0","autoplot(pred_lan)+"
+"0","  autolayer(lan_test_weekly,series = ""SARIMA"", color = ""red"")"

@@ -1,0 +1,220 @@
+---
+title: "hw6"
+author: "Kai Li"
+date: "August 3, 2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message= FALSE}
+# load libraries
+
+library(caret)
+library(TSA)
+library(pls)
+library(forecast)
+library(tseries)
+
+```
+
+
+### Question 1:
+Load and plot the visitors dataset and plot the dataset with and without the Box Cox transformation.
+Describe the main dataset characteristics.
+```{r}
+
+load("C:/Kai/UChicago/time_series/hw/visitors.rda")
+
+```
+
+```{r}
+
+ts.plot(visitors)
+
+lambda = BoxCox.lambda(visitors)
+t_visitors = BoxCox(visitors, lambda = lambda)
+ts.plot(t_visitors)
+
+```
+From the time series plot, we can see the magnitude of time series data is increasing from 1985 to 2005. Therefore, it is not a stationary time-series data, so I think BOX-COX is necessary for this data set.         
+After the BOX-COx transformation, the plot shows the transformed data set has much similar magnitude over the data set.       
+
+
+### Question 2:
+Build two models using the entire visitors dataset
+
+a. Model 1: Let the auto.arima() function determine the best order ARIMA (p,d,q)(P,D,Q)s model.        
+
+b. Model 2: Let the ets() function determine the best model for exponential smoothing.         
+```{r}
+
+model_1  = auto.arima(visitors, lambda = "auto")
+model_1
+
+model_2 = ets(visitors)
+model_2
+
+
+```
+Comparing two models above, the SARIMA model has much lower AICc and BIC compared with exponential smoothing model. Therefore, the SARIMA model is the better choice. 
+
+
+
+
+### Question 3:
+In this section you will apply the time-series cross validation method to train and test various models.
+Use the following values when training and testing the models:
+• Set the minimum number of samples required to train the model to 160 (i.e., this is the
+minimum number of samples in the sliding window and the initial number of samples in the
+expanding window method.)
+• Set the number the forecast horizon, ℎ, to 1 year (i.e., 12 months.)
+• Recall that the period, 𝑝, is equal to 12 months
+• Use a single observation incrementation in each iteration (i.e., shift the training set forward by 1
+observation.)
+• Note: You are expected to have 80 iterations of cross validation
+
+For each iteration, apply the following 4 forecasts:
+1) Use the Arima() function to estimate a sARIMA([1,0,1][0,1,2]12 with drift model for:           
+  a. Expanding training window and           
+  b. Sliding training window             
+2) Use the Exponential Smoothing function ets() to estimate a MAM (Multiplicative Error, Additive trend, multiplicative Season) model for:                 
+  a. Expanding training window                
+  b. Sliding training window               
+For each test window record the:          
+  1) One-year forecast horizon error            
+  2) Estimated model AICc value                
+For each of the four models above, calculate and plot the        
+  1) Mean Absolute Forecast Error (MAE) vs forecast horizon            
+  2) Root-square Forecast Error (RMSE) vs forecast horizon               
+  3) AICc vs iteration number           
+Discuss your results.          
+
+```{r}
+n <- length(visitors)
+k = 160
+H = 12
+p = 12
+st <- tsp(visitors)[1]+(k-2)/p
+
+
+AICc = data.frame(matrix(ncol= 4, nrow= 80))
+
+MAE1 = matrix(NA,n-k,H)
+MAE2 = matrix(NA,n-k,H)
+MAE3 = matrix(NA,n-k,H)
+MAE4 = matrix(NA,n-k,H)
+
+
+colnames(AICc)= c("SARIMA_Exp", "SARIMA_Slid", "Exponential_Exp", "Exponential_Slid")
+
+
+for(i in 1:(n-k))
+{
+  #print(i)
+  ### One Month rolling forecasting
+  
+  # Expanding Window 
+  train_1 <- window(visitors, end=st + i/p)  ## Window Length: k+i
+  
+  
+  # Sliding Window - keep the training window of fixed length. 
+  # The training set always consists of k observations.
+  train_2 <- window(visitors, start=st+(i-k+1)/p, end=st+i/p) ## Window Length: k
+  
+  
+  test <- window(visitors, start=st + (i+1)/p, end=st + (i+H)/p) ## Window Length: H
+
+  
+  # SRIMA model with Expanding window
+  fit_1_1 <- Arima(train_1, order=c(1,0,1), seasonal=list(order=c(0,1,2), period=p),
+                include.drift=TRUE, lambda="auto", method="ML")
+  fcast_1_1 <- forecast(fit_1_1, h=H)
+  
+  # SRIMA model with sliding window
+  fit_1_2 <- Arima(train_2, order=c(3,0,1), seasonal=list(order=c(0,1,1), period=p),
+                include.drift=TRUE, lambda="auto", method="ML")
+  fcast_1_2 <- forecast(fit_1_2, h=H)
+  
+  # Exponential smoothing model with expanding window
+  fit_2_1 = ets(train_1)
+  fcast_2_1 <- forecast(fit_2_1, h=H)
+  
+  # Exponential smoothing model with sliding window
+  fit_2_2 = ets(train_2)
+  fcast_2_2 <- forecast(fit_2_2, h=H)
+  
+  AICc$SARIMA_Exp[i] = fit_1_1$aicc
+  AICc$SARIMA_Slid[i] = fit_1_2$aicc
+  AICc$Exponential_Exp[i] = fit_2_1$aicc
+  AICc$Exponential_Slid[i] = fit_2_2$aicc
+
+  MAE1[i,1:length(test)] <- abs(fcast_1_1[['mean']]-test)
+  MAE2[i,1:length(test)] <- abs(fcast_1_2[['mean']]-test)
+  MAE3[i,1:length(test)] <- abs(fcast_2_1[['mean']]-test)
+  MAE4[i,1:length(test)] <- abs(fcast_2_2[['mean']]-test)
+  
+  
+}
+```
+
+
+
+```{r}
+plot(1:H,  sqrt(colMeans(MAE1, na.rm = TRUE)), type="l",col=1, xlab="horizon", ylab="MAE", ylim = c(4,6))
+lines(1:H, sqrt(colMeans(MAE2, na.rm = TRUE)), type="l",col=2)
+lines(1:H, sqrt(colMeans(MAE3, na.rm = TRUE)), type="l",col=3)
+lines(1:H, sqrt(colMeans(MAE4, na.rm = TRUE)), type="l",col=4)
+legend("topleft",legend=c("SARIMA - Expanding Window","SARIMA - Sliding Window", 'Exponential-Expanding', 'Exponential-Sliding'),col=1:4, lty=1)
+```
+For the MAE plot for each prediction horizon, all four error measurements are increasing. The SARIMA model with sliding window has the lowest MAE and Exponential model with expanding window has the highest MAE across all the prediction horizons. Therefore, the SARIMA model with sliding window is the best one.     
+
+
+```{r}
+plot(1:H, sqrt(colMeans(MAE1^2, na.rm = TRUE)), type="l",col=1,xlab="horizon", ylab="RMSE")
+lines(1:H, sqrt(colMeans(MAE2^2, na.rm = TRUE)), type="l",col=2)
+lines(1:H, sqrt(colMeans(MAE3^2, na.rm = TRUE)), type="l",col=3)
+lines(1:H, sqrt(colMeans(MAE4^2, na.rm = TRUE)), type="l",col=4)
+legend("topleft",legend=c("SARIMA - Expanding Window","SARIMA - Sliding Window", 'Exponential-Expanding', 'Exponential-Sliding'),col=1:4, lty=1)
+```
+For the RMSE plot, ARIMA model with sliding window has the lowest RMAE compared with other models. In general, both SARIMA and exponential smoothing model with sliding window have lower RMSE. It shows the sliding window give better prediction results than the expanding window because it drops the data points far away from the predictions to reflect the current change. The best model is still the SARIMA model with sliding window providing the lowest RMSE.     
+
+
+
+
+```{r}
+#win.graph(width=6, height=6,pointsize=12)
+plot(1:80, AICc$SARIMA_Exp, type="l",col=1,xlab="horizon", ylab="AICc", ylim = c(-900,300))
+lines(1:80, AICc$SARIMA_Slid,type="l",col=2)
+legend("bottomleft",legend=c("SARIMA - Expanding Window","SARIMA - Sliding Window"),col=1:4, lty=1)
+
+```
+
+
+```{r}
+plot(1:80, AICc$Exponential_Exp, type="l",col=1,xlab="horizon", ylab="AICc")
+lines(1:80, AICc$Exponential_Slid,type="l",col=4)
+legend("bottomleft",legend=c('Exponential-Expanding', 'Exponential-Sliding'),col=1:4, lty=1)
+```
+
+Comparing AICc for four models. The AICcs for both exponential smoothing models is much higher than two SRIMA models. It shows the SARIMA models can capture much more information than exponential smoothing models.              
+
+For tow ARIMA models, the SARIMA model with sliding window has lower AICc, so it is the best one. It shows some periodical pattern of dropping and increasing. When adding one more entire seasons into the training dataset, the SARIMA model could capture more information and reduce the AICc. The sliding window method drops early data points and more focus on the recent data points, so it has less information loss.               
+
+For two exponential smoothing model, we cannot see any periodical change when the training set is changing. Thus, they do not capture any seasonal trend in the data set. Moreover, as iteration goes up, the exponential smoothing model with expanding window grows much faster than the other one. The reason might be the trend has a much more significant effect in this data set.  
+      
+
+
+### Question 4:
+What are the disadvantages of the above methods. What would be a better approach to estimate the models? Hint: How were the sArima and exponential time series models determined in question 3?           
+
+Sliding window models better performance in both RMSE and MAE error measurements in general, because it more focuses on the recent data points and ignoring early data points. In this case, the overall trend is increasing and have enough data points. Thus, the sliding window can provide enough data for models to train. However, if the data isn't sufficient or the overall trend isn't clear, the sliding window method might not always be the best choice.              
+
+Comparing the SARIMA model and the Exponential smoothing model, this data set has strong seasonality. SARIMA model has better performance in capturing seasonalities. However, SARIMA model has the stricter assumption that the data set is stationary. If it is not, we have to take care of overfitting or over-differencing problem. Thus, Exponential smoothing is simpler and has fewer assumptions requirements compared with SARIMA. However, SARIMA has better performance in capturing information and seasonality. 
+
+
+

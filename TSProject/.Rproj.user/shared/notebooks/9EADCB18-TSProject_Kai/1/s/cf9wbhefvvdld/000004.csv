@@ -1,0 +1,21 @@
+"0","checkresiduals(model_auto)
+"
+"1","
+"
+"1","	Ljung-Box test"
+"1","
+"
+"1","
+"
+"1","data:  "
+"1","Residuals from ARIMA(2,1,2)(1,0,0)[7]"
+"1","
+"
+"1","Q* = 28.125, df = 9, p-value = 0.0009089"
+"1","
+"
+"1","
+"
+"1","Model df: 5.   Total lags used: 14
+
+"
