@@ -1,1 +1,0 @@
-"0","model_xreg = auto.arima(lan_train_weekly, xreg=shen_train_weekly)"

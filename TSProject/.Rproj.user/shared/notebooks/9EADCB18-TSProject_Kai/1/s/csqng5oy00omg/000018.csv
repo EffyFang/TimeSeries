@@ -1,8 +1,0 @@
-"0","var_data = window(ts.union(shen_train_weekly, lan_train_weekly))"
-"0","model_var = VAR(y = var_data, p = 2)"
-"0","pred = predict(model_var, h = 12)"
-"0","pred_shen = pred$fcst$shen_train_weekly[,1]"
-"0","pred_shen = ts(pred_shen, start = c(114, 1), end = c(115,5), frequency = 7)"
-"0","autoplot(pred_shen, include = 100)+"
-"0","  autolayer(shen_test_weekly,series = ""SARIMA"", color = ""red"")"
-"2","Ignoring unknown parameters: include"

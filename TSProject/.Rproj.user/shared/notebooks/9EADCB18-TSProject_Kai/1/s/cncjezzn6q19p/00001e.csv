@@ -1,0 +1,1 @@
+"0","#plot(decompose(kidney_train_weekly, type=""multiplicative""))"
