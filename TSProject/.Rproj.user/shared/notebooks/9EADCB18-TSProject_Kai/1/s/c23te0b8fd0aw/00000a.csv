@@ -1,0 +1,5 @@
+"0","model_xreg = auto.arima(append_transformed_train, xreg = diff(kidney_transformed_train), d = 1)"
+"2","longer object length is not a multiple of shorter object length"
+"2","Error in model.frame.default(formula = x ~ xregg, drop.unused.levels = TRUE) : 
+  variable lengths differ (found for 'xregg')
+"
