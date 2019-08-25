@@ -3,10 +3,10 @@ title: "Project_Tennis"
 author: "Effy Fang"
 date: "August 25, 2019"
 output:
+  word_document: default
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
-  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -223,7 +223,7 @@ all the residuals look okay.
 
 ```{r}
 f.var=forecast(m.var,h=28)
-f.var.en=f.var$forecast$transformed.en$mean
+f.var.en=f.var$forecast$en$mean
 error.var=InvBoxCox(f.var.en, lambda=lambda1)-test[,1]
 #error.var = sqrt(mean(InvBoxCox(forecast(m.var, h=28)$forecast$transformed.en$mean, lambda=lambda1)-test[,1])^2)
 ```
