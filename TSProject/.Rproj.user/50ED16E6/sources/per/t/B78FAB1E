@@ -8,13 +8,13 @@
     "hash" : "2490257594",
     "id" : "B78FAB1E",
     "lastKnownWriteTime" : 1565733550,
-    "last_content_update" : 1565733550568,
+    "last_content_update" : 1566245161327,
     "path" : "~/GitHub/TimeSeries-Project/TSProject/TSProject.Rmd",
     "project_path" : "TSProject.Rmd",
     "properties" : {
         "chunk_output_type" : "inline",
-        "cursorPosition" : "249,36",
-        "scrollLine" : "230",
+        "cursorPosition" : "37,59",
+        "scrollLine" : "0",
         "tempName" : "Untitled1"
     },
     "relative_order" : 1,

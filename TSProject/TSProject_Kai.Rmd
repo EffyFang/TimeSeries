@@ -1,0 +1,332 @@
+---
+title: "TSProject_Kai"
+author: "Kai Li"
+date: "August 19, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r message=FALSE}
+# load libraries
+library(caret)
+library(TSA)
+library(pls)
+library(forecast)
+library(tseries)
+library(vars)
+library(MASS)
+```
+
+
+
+```{r}
+df = readRDS("~/GitHub/TimeSeries-Project/TSProject/new_train.rds")
+
+df1 = df[,10:12]
+append = as.numeric(df1[,1])
+kidney = as.numeric(df1[,3])
+
+```
+
+```{r}
+Acf(append)
+Acf(kidney)
+```
+
+
+```{r}
+
+## use log rather than auto lambda
+append_weekly = ts(append, frequency = 7)
+kidney_weekly = ts(kidney, frequency = 7)
+
+
+append_train_weekly = window(append_weekly, start = c(1,1), end = c(112,7))
+append_test_weekly  = window(append_weekly, start = c(113,1), end = c(115,5))
+
+
+kidney_train_weekly = window(kidney_weekly, start = c(1,1), end = c(112,7))
+kidney_test_weekly  = window(kidney_weekly, start = c(113,1), end = c(115,5))
+
+```
+
+
+```{r}
+Acf(append_transformed_train)
+#Acf(append_transformed_train)
+```
+
+```{r}
+Acf(append)
+
+append_lambda = BoxCox.lambda(append_train_weekly)
+append_transformed_train = BoxCox(append_train_weekly, lambda = append_lambda)
+
+
+autoplot(append_train_weekly)+
+  autolayer(append_test_weekly)
+
+append_transformed_test = BoxCox(append_test_weekly, lambda = append_lambda)
+
+autoplot(append_transformed_train)+
+  autolayer(append_transformed_test)
+
+```
+
+
+
+
+```{r}
+Acf(kidney)
+
+kidney_lambda = BoxCox.lambda(kidney_train_weekly)
+kidney_transformed_train = BoxCox(kidney_train_weekly, lambda = kidney_lambda)
+
+
+autoplot(kidney_train_weekly)+
+  autolayer(kidney_test_weekly)
+
+kidney_transformed_test = BoxCox(kidney_test_weekly, lambda = kidney_lambda)
+
+autoplot(kidney_transformed_train)+
+  autolayer(kidney_transformed_test)
+
+```
+
+
+
+
+
+```{r}
+adf.test(append_transformed_train) # small
+kpss.test(append_transformed_train) # level is not stationary  big
+
+adf.test(diff(append_transformed_train)) # small
+kpss.test(diff(append_transformed_train)) # level is not stationary  big
+plot(diff(append_transformed_train))
+
+
+#plot(decompose(append_transformed_train, type="multiplicative"))
+```
+
+
+```{r}
+adf.test(kidney_transformed_train)
+kpss.test(kidney_transformed_train) # level is not stationary
+
+
+adf.test(diff(diff(kidney_transformed_train)))
+kpss.test(diff(diff(kidney_transformed_train)))
+
+plot(diff(kidney_transformed_train))
+
+
+#plot(decompose(kidney_train_weekly, type="multiplicative"))
+```
+
+
+
+```{r}
+ts.plot(diff(append_transformed_train))
+acf(diff(append_transformed_train))
+pacf(diff(append_transformed_train))
+```
+
+
+
+
+```{r}
+
+model_auto = auto.arima(append_transformed_train, d = 1, seasonal = TRUE)
+model_auto
+
+#eacf(append_transformed_train)
+model_auto$coef
+#acf(model_auto$residuals)
+#pacf(model_auto$residuals)
+# Ljung-Box big
+checkresiduals(model_auto)
+
+pred = forecast(model_auto, h = 19)
+inv_pred = InvBoxCox(pred$mean, lambda = append_lambda)
+accuracy(inv_pred, append_test_weekly)
+
+autoplot(inv_pred, include = 100)+
+  autolayer(append_test_weekly, color = "red")
+
+
+```
+
+```{r}
+eacf(kidney_transformed_train)
+```
+
+
+```{r}
+
+model_auto = Arima(kidney_transformed_train, order = c(1,1,2), seasonal = c(1, 0, 2))
+model_auto
+
+model_auto$coef
+#acf(model_auto$residuals)
+#pacf(model_auto$residuals)
+# Ljung-Box big
+checkresiduals(model_auto)
+
+pred = forecast(model_auto, h = 19)
+inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
+accuracy(inv_pred, kidney_test_weekly)
+
+autoplot(inv_pred, include = 100)+
+  autolayer(kidney_test_weekly, color = "red")
+
+
+```
+
+
+
+
+
+```{r}
+
+model_auto = auto.arima(jia_train_daily, lambda = "auto", seasonal = TRUE)
+model_auto
+
+model_auto$coef
+Acf(model_auto$residuals)
+pacf(model_auto$residuals)
+checkresiduals(model_auto)
+
+pred = forecast(model_auto, h = 12)
+accuracy(pred, jia_test_daily)
+
+autoplot(pred, include = 100)+
+  autolayer(jia_test_daily,series = "SARIMA", color = "red")
+```
+
+
+```{r}
+temp = tbats(lan_train_weekly)
+checkresiduals(temp)
+temp
+
+## ARFIMA class 7
+
+```
+
+
+```{r}
+# use partial lag, lag = 0.111  TBATS
+model_auto = auto.arima(log(jia_train_weekly),  seasonal = TRUE)
+model_auto
+
+model_auto$coef
+Acf(model_auto$residuals)
+pacf(model_auto$residuals)
+checkresiduals(model_auto)
+
+pred = forecast(model_auto, h = 12)
+accuracy(pred, jia_test_weekly)
+
+autoplot(exp(pred$mean))+
+  autolayer(jia_test_weekly,series = "SARIMA", color = "red")
+```
+
+
+
+
+
+```{r}
+
+model_auto = auto.arima(jia1, lambda = "auto", seasonal = TRUE)
+model_auto
+
+model_auto$coef
+acf(model_auto$residuals)
+pacf(model_auto$residuals)
+```
+
+
+
+
+
+```{r}
+
+model_auto = auto.arima(shen1, lambda = "auto", seasonal = TRUE)
+model_auto
+
+model_auto$coef
+acf(model_auto$residuals)
+pacf(model_auto$residuals)
+checkresiduals(model_auto)
+```
+
+
+
+
+```{r}
+arfima()
+tbats()
+```
+
+
+```{r}
+
+model_xreg = auto.arima(lan_train_weekly, xreg=shen_train_weekly,lambda = "auto")
+model_xreg
+checkresiduals(model_xreg)
+
+pred = forecast(model_xreg, xre = shen_test_weekly, h = 19)
+accuracy(pred, lan_test_weekly)
+
+autoplot(pred, include = 10)+
+  autolayer(lan_test_weekly,series = "SARIMA", color = "red")
+
+```
+
+
+
+```{r}
+summary(ses(jia1))
+```
+
+```{r}
+library(fpp2)
+harmonics = fourier(shen_train_weekly, K =2)
+fit = auto.arima(lan_train_weekly, xreg = harmonics, seasonal = FALSE)
+
+new_harmonics = fourier(shen_train_weekly, K =2, h = 12)
+pred = forecast(fit, xreg = new_harmonics)
+
+accuracy(pred, shen_test_weekly)
+
+autoplot(pred, include = 10)+
+  autolayer(shen_test_weekly,series = "SARIMA", color = "red")
+```
+
+
+
+```{r}
+
+
+var_data = window(ts.union(shen_train_weekly, lan_train_weekly))
+
+
+model_var = VAR(y = var_data, p = 2)
+pred = predict(model_var, h = 12)
+pred_shen = pred$fcst$shen_train_weekly[,1]
+pred_shen = ts(pred_shen, start = c(114, 1), end = c(115,5), frequency = 7)
+autoplot(pred_shen, include = 100)+
+  autolayer(shen_test_weekly,series = "SARIMA", color = "red")
+
+
+pred_lan = pred$fcst$lan_train_weekly[,1]
+pred_lan = ts(pred_lan, start = c(114, 1), end = c(115,5), frequency = 7)
+autoplot(pred_lan)+
+  autolayer(lan_test_weekly,series = "SARIMA", color = "red")
+```
