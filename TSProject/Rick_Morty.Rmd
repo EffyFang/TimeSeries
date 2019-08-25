@@ -1,0 +1,85 @@
+---
+title: "Untitled"
+author: "Ying Huang"
+date: "8/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(TSA)
+library(tseries)
+library(fpp)
+library(forecast)
+```
+
+Read Rick and Morty Data
+```{r}
+project.ts <- readRDS("~/Documents/GitHub/TimeSeries-Project/TSProject/new_train.rds")
+project.ts <- ts(project.ts)
+rick_morty_es <- ts(as.numeric(project.ts[,'rick_y_morty']))
+rick_morty_es <- window(rick_morty_es,start=400)
+rick_morty_en <- ts(as.numeric(project.ts[,'rick_and_morty']))
+rick_morty_en <- window(rick_morty_en,start=400)
+```
+
+Prepare the dataset, transform it to weekly dataset or montly data.
+```{r}
+rick_morty_es_weekly <- ts(rick_morty_es, frequency = 7)
+tsdisplay(rick_morty_es_weekly)
+rick_morty_es_monthly <- ts(rick_morty_es, frequency = 30)
+tsdisplay(rick_morty_es_monthly)
+```
+
+First, we forcus on the weekly data. 
+```{r}
+lambda_weekly <- BoxCox.lambda(rick_morty_es_weekly)
+lambda_weekly
+weekly_es_trans <- BoxCox(rick_morty_es_weekly,lambda_weekly)
+autoplot(weekly_es_trans)
+#check stationary
+kpss.test(weekly_es_trans)
+kpss.test(diff(weekly_es_trans)) #pass level
+kpss.test(diff(weekly_es_trans),null = 'Trend') #pass trend
+#we need d=1
+```
+
+Split train and test data
+```{r}
+weekly_train <- window(weekly_es_trans,end=c(56,7))
+weekly_test <- window(rick_morty_es_weekly,start=c(57,1))
+h <- 12
+```
+
+#Fit the model
+##Start with Auto.Arima.
+```{r}
+arima.fit <- auto.arima(weekly_train,d=1,seasonal = TRUE) #211,200
+arima.fit$aicc #-2114.277
+arima.fit$aic #-2114.496
+summary(arima.fit)
+checkresiduals(arima.fit)
+```
+##Prediction from auto arima
+```{r}
+autoarima <- forecast(arima.fit,h)
+autoplot(autoarima) 
+automean <- InvBoxCox(autoarima$mean,lambda_weekly)
+autoplot(automean)+autolayer(weekly_test)
+sqrt(sum((weekly_test-automean)^2)) #1301.181
+```
+
+##Arima from eacf
+```{r}
+eacf(weekly_train)
+arima(weekly_train,order=c(2,1,2),seasonal = list(order=c(2,0,0)))
+
+
+
+```
+
+
+
+
+
+
