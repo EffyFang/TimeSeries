@@ -1,7 +1,7 @@
 ---
 title: "Project_Tennis"
 author: "Effy Fang"
-date: "August 19, 2019"
+date: "August 25, 2019"
 output:
   word_document: default
   pdf_document: default
@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(warn = -1)
 ```
 
-```{r package}
+```{r package, warning=FALSE, message=FALSE}
 library(fpp)
 library(TSA)
 library(ggplot2)
@@ -25,7 +25,7 @@ library(vars)
 ```{r q1}
 datapath <- "C:/Users/effyf/Documents/MSCA/time series/project/TimeSeries-Project/TSProject"
 project.dat<-readRDS(file=paste(datapath,"new_train.rda",sep="/"))
-head(project.dat)
+#head(project.dat)
 tennis.en=as.integer(project.dat[,6])
 tennis.fr=as.integer(project.dat[,7])
 tennis.es=as.integer(project.dat[,8])
@@ -43,6 +43,8 @@ train.weekly <- window(ts.weekly, end=c(111,5))
 test.weekly <- window(ts.weekly, start=c(111,6))
 tsdisplay(train)
 ```
+
+
 the variance is not stable, need boxcox transformation 
 
 ```{r boxcox}
@@ -54,15 +56,17 @@ lambda3 <- BoxCox.lambda(train[,3])
 transformed.es <- BoxCox(train[,3],lambda=lambda3)
 lambda4 <- BoxCox.lambda(train[,4])
 transformed.de <- BoxCox(train[,4],lambda=lambda4)
-autoplot(transformed.en)
-autoplot(transformed.fr)
-autoplot(transformed.es)
-autoplot(transformed.de)
+transformed=cbind(en=transformed.en,es=transformed.es,fr=transformed.fr,
+                de=transformed.de)
+tsdisplay(transformed)
 ```
 ## stationary test 
 ```{r}
 kpss.test(transformed.en) #is level stationary  
 adf.test(transformed.en)
+adf.test(transformed.es)
+adf.test(transformed.fr)
+adf.test(transformed.de)
 ```
 # model fitting 
 
@@ -77,16 +81,17 @@ m.ets <- ets(transformed.en) # best amoung the 3
 summary(m.ets) 
 checkresiduals(m.ets)
 ```
-residuals do not look good. we'll not consider this model.
+
+residuals do not look good. we'll not consider this model
+
 ```{r}
 f.ets=forecast(m.ets,h=28)
 error.ets=InvBoxCox(f.ets$mean,lambda=lambda1)-test[,1]
-#unique(InvBoxCox(f.ets$mean,lambda=lambda1))
-#tail(tennis.en)
+unique(InvBoxCox(f.ets$mean,lambda=lambda1)) #only gives 1 value in the preidction 
 ```
 
-## arima
-```{r arima}
+## auto.arima
+```{r auto.arima}
 # fit auto.arima on en
 m.auto=auto.arima(train[,1],lambda=lambda1)
 summary(m.auto)
@@ -99,26 +104,30 @@ residuals look okay, pass ljung-box test if we lower the significance level.
 ```{r}
 f.auto <- forecast(m.auto,h=28)
 error.auto <- f.auto$mean-test[,1]
-#plot(forecast(m.auto,h=7),include=100)
+#plot(forecast(m.auto,h=28),include=100)
 ```
+
 ## arima 
 ```{r}
 eacf(transformed.en)
 ```
+
 ```{r}
-m.1.0 <- Arima(transformed.en, order=c(1,0,0))#, lambda=lambda1)
-m.1.1 <- Arima(transformed.en, order=c(1,0,1))#, lambda=lambda1)
+m.1.0 <- Arima(train[,1], order=c(1,0,0), lambda=lambda1)
+m.1.1 <- Arima(train[,1], order=c(1,0,1),lambda=lambda1)
 summary(m.1.0) # better 
 summary(m.1.1)
 ```
+
 ```{r}
 checkresiduals(m.1.0)
 checkresiduals(m.1.1)
 ```
-AIC from arima(1,0,0) is slightly lower but not different by much. However the redisual p-value is far from passing the ljung-box test. so we'll not consider this model. 
+AIC from arima(1,0,0) is not much different than auto.arima, but this model is simpler. However the redisual p-value is far from passing the ljung-box test, so we'll not consider this model. 
+
 ```{r}
 f.arima.100 <- forecast(m.1.0,h=28)
-error.arima.100 <- InvBoxCox(f.arima.100$mean,lambda=lambda1)-test[,1]
+error.arima.100 <- f.arima.100$mean-test[,1]
 ```
 ## sarima
 ```{r seasonal arima}
@@ -129,7 +138,7 @@ error.arima.100 <- InvBoxCox(f.arima.100$mean,lambda=lambda1)-test[,1]
 #m2=auto.arima(annual.en,seasonal=T, D=1)
 #summary(m2)
 
-# reconstruct ts with 30, assume weekly seasonality 
+# reconstruct ts with 30, assume monthly seasonality 
 ### weekly is better.
 #monthly.en=ts(transformed.en,frequency=30)
 # fit auto.arima on en
@@ -138,15 +147,13 @@ error.arima.100 <- InvBoxCox(f.arima.100$mean,lambda=lambda1)-test[,1]
 #checkresiduals(m.monthly)
 ```
 
-
-
 ## weekly 
 ```{r weekly}
 # fit auto.arima on weekly ts 
 m.weekly=auto.arima(train.weekly[,1],seasonal=T,lambda=lambda1)
 summary(m.weekly)
 ```
-AIC is lower and loglikelyhood is better. -6720 to -6726
+AIC is lower and loglikelyhood is better. 
 
 ```{r}
 checkresiduals(m.weekly)
@@ -158,10 +165,11 @@ f.sarima <- forecast(m.weekly,h=28)
 error.sarima <- f.sarima$mean-test.weekly[,1]
 ```
 
-## arima error regression 
+## regression with arima error
 adding the influence from es, fr, and de pages. 
 ```{r xreg}
-m.reg <- auto.arima(train.weekly[,1],xreg =cbind(transformed.es, transformed.fr, transformed.de),seasonal=T, lambda=lambda1)
+xreg =cbind(transformed.es, transformed.fr, transformed.de)
+m.reg <- auto.arima(train.weekly[,1],xreg =xreg,seasonal=T, lambda=lambda1)
 summary(m.reg)
 ```
 
@@ -175,15 +183,15 @@ transformed.test=cbind(transformed.es=BoxCox(test[,2],lambda=lambda2),
                        transformed.fr=BoxCox(test[,3],lambda=lambda3),
                        transformed.de=BoxCox(test[,4],lambda=lambda4))
 f.xreg <- forecast(m.reg,xreg=transformed.test,h=28)
+f.xreg
 error.xreg <- f.xreg$mean-test.weekly[,1]
 ```
 
 ## VAR
 ```{r var}
-transformed <- cbind(transformed.en, transformed.es, transformed.fr, transformed.de)
 VARselect(transformed) 
 # 4 selected by aic, 2 by bic
-m.var <- VAR(transformed,p=4,type = "both")
+m.var <- VAR(transformed,p=2,type = "both")
 summary(m.var)
 ```
 
@@ -206,19 +214,21 @@ hist(residuals[,4])
 ```
 
 ```{r}
-Box.test(residuals[,1],type="Ljung-Box")
-Box.test(residuals[,2],type="Ljung-Box")
-Box.test(residuals[,3],type="Ljung-Box")
-Box.test(residuals[,4],type="Ljung-Box")
+Box.test(residuals[,1],type="Ljung-Box",lag=12)
+Box.test(residuals[,2],type="Ljung-Box",lag=12)
+Box.test(residuals[,3],type="Ljung-Box",lag=12)
+Box.test(residuals[,4],type="Ljung-Box",lag=12)
 ```
-all the residuals look good 
+all the residuals look okay. 
 
 ```{r}
-f.var <- forecast(m.var, h=28)
-error.var = InvBoxCox(f.var$forecast$transformed.en$mean, lambda=lambda1)-test[,1]
+f.var=forecast(m.var,h=28)
+f.var.en=f.var$forecast$en$mean
+error.var=InvBoxCox(f.var.en, lambda=lambda1)-test[,1]
+#error.var = sqrt(mean(InvBoxCox(forecast(m.var, h=28)$forecast$transformed.en$mean, lambda=lambda1)-test[,1])^2)
 ```
 
-## fourier
+## fourier transformation - dynamic harmonic regression 
 ```{r fourier}
 transformed.weekly.en=ts(transformed.en,frequency = 7)
 harmonic <- fourier(transformed.weekly.en,K=3)
@@ -229,6 +239,7 @@ summary(m.fourier)
 ```{r}
 checkresiduals(m.fourier)
 ```
+residuals do not pass the Ljung-box test. couple of outliers in the residuals. 
 
 ```{r}
 new.harmonic <- fourier(transformed.weekly.en,K=3,h=28)
@@ -236,19 +247,27 @@ f.fourier <- forecast(m.fourier,xreg=new.harmonic, h=28)
 error.fourier <- InvBoxCox(f.fourier$mean, lambda=lambda1)-as.numeric(test[,1])
 ```
 
-
 ## TBATS
 ```{r tbats}
 m.tbats <- tbats(transformed.en)
 print(m.tbats)
-plot(forecast(m.tbats, h=7))
+plot(forecast(m.tbats, h=28))
 checkresiduals(m.tbats)
 ```
+residuals do not pass ljung-box test. 
 
+##nnetar
+```{r}
+nn <-nnetar(transformed.en)
+checkresiduals(nn)
+f.nn=forecast(nn,h=28)
+error.nn=InvBoxCox(f.nn$mean, lambda=lambda1)-(test[,1])
+rmse.nn<-sqrt(mean(error.nn^2,na.rm=TRUE))
+plot(forecast(nn, h=28))
+```
 
 ## model comparison 
 ```{r}
-logLik(m.var)
 aicc <- cbind(ets=m.ets$aicc, auto.arima=m.auto$aicc, arima.100=m.1.0$aicc, 
           sarima=m.weekly$aicc, xreg=m.reg$aicc, varma.AIC =AIC(m.var), fourier = m.fourier$aicc) 
 aicc
@@ -268,15 +287,39 @@ rmse.varma <- sqrt(mean(error.var^2,na.rm=TRUE))
 rmse.fourier <- sqrt(mean(error.fourier^2,na.rm=TRUE))
 
 rmse <- c(ets=rmse.ets, auto.arima = rmse.auto, arima.100=rmse.arima.100,
-         sarima=rmse.weekly, xreg=rmse.xreg, varma=rmse.varma, fourier=rmse.fourier)
+         sarima=rmse.weekly, xreg=rmse.xreg, varma=rmse.varma, fourier=rmse.fourier, nnetar=rmse.nn)
 rmse
 data <- rbind(aicc,bic,ll,rmse)
 comparison <- as.data.frame(t(data),row.name=c('ets','auto.arima','arima(1,0,0)','sarima(weekly)', 'regression with arima error', 'varma', 'fourier'))
 colnames(comparison)<-c('aic', 'bic', 'loglik', 'rmse')
-comparison[order(comparison$aic),]
+comparison[order(comparison$rmse),]
 ```
-
+var(2) model has a much lower aic and bic then other models, and way bigger loglikelihood. However, this is computed from all 4 equations. could not compare it with other 1 equation models. But we can compare the RMSE on the reserved test set. regression with arima error model seems to be the best fit. 
 
 ```{r}
-comparison[order(comparison$rmse),]
+autoplot(test.weekly[,1])+autolayer(f.xreg$mean)
+```
+error is bigger for the later time. it captures the general trend but underestimates the peak. 
+
+## forecasting 1 week out
+```{r prediction}
+## using arima to predict es, fr and de
+m.es <- auto.arima(tennis[,2],lambda='auto')
+summary(m.es)
+checkresiduals(m.es)
+m.fr <- auto.arima(tennis[,3],lambda='auto')
+summary(m.fr)
+checkresiduals(m.fr)
+m.de <- auto.arima(tennis[,4],lambda = 'auto')
+summary(m.de)
+checkresiduals(m.de)
+# use predicted values to construct a new xreg to predict 1 more week of en
+new.es <- forecast(m.es,h=7)$mean
+new.fr <- forecast(m.fr,h=7)$mean
+new.de <- forecast(m.de,h=7)$mean
+# append the next 7 days prediction to the test period
+new.xreg=cbind(transformed.es=BoxCox(append(test[,2],new.es),lambda=lambda2),
+               transformed.fr=BoxCox(append(test[,3],new.fr),lambda=lambda3),
+               transformed.de=BoxCox(append(test[,4],new.de),lambda=lambda4))
+autoplot(forecast(m.reg,h=28+7, xreg=new.xreg),inlcude=50)
 ```
