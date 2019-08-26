@@ -2,7 +2,9 @@
 title: "Untitled"
 author: "Ying Huang"
 date: "8/20/2019"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -11,9 +13,10 @@ library(TSA)
 library(tseries)
 library(fpp)
 library(forecast)
+library(vars)
 ```
 
-Read Rick and Morty Data
+## Read Rick and Morty Data
 ```{r}
 project.ts <- readRDS("~/Documents/GitHub/TimeSeries-Project/TSProject/new_train.rds")
 project.ts <- ts(project.ts)
@@ -23,20 +26,20 @@ rick_morty_en <- ts(as.numeric(project.ts[,'rick_and_morty']))
 rick_morty_en <- window(rick_morty_en,start=400)
 ```
 
-###Plot the data
+### Plot the data
 ```{r}
 RickMorty <- cbind(Spanish = rick_morty_es, English = rick_morty_en)
 tsdisplay(RickMorty)
 ```
 
 
-##Prepare the dataset, transform it to weekly dataset.
+### Prepare the dataset, transform it to weekly dataset.
 ```{r}
 rick_morty_es_weekly <- ts(rick_morty_es, frequency = 7)
 tsdisplay(rick_morty_es_weekly)
 ```
 
-###Split train and test data
+### Split train and test data
 ```{r}
 es_weekly_train <- window(rick_morty_es_weekly,end=c(55,7))
 es_weekly_test <- window(rick_morty_es_weekly,start=c(56,1))
@@ -60,8 +63,8 @@ tsdisplay(diff(weekly_train))
 
 
 
-#Fit the model
-##Start with Auto.Arima.
+# Fit the model
+## Start with Auto.Arima.
 ```{r}
 arima.fit <- auto.arima(weekly_train,d=1,seasonal = TRUE) #211,200
 arima.fit$aicc #-2469.01
@@ -70,7 +73,7 @@ summary(arima.fit)
 checkresiduals(arima.fit) #white noise
 ```
 
-##Prediction from auto arima
+### Prediction from auto arima
 ```{r}
 autoarima <- forecast(arima.fit,h)
 autoplot(autoarima) 
@@ -80,7 +83,7 @@ sqrt(sum((es_weekly_test-automean)^2)/h) #327.0045
 auto <- accuracy(automean,es_weekly_test)
 ```
 
-##Arima from eacf
+## Arima from eacf
 ```{r}
 eacf(weekly_train)
 arima212 <- Arima(weekly_train,order=c(2,1,2),seasonal = list(order=c(2,0,0)))
@@ -96,7 +99,7 @@ sqrt(sum((es_weekly_test-arimamean)^2)/h) #345.6329
 arima <- accuracy(arimamean,es_weekly_test)
 ```
 
-##Xreg
+## Xreg
 ```{r}
 rick_morty_en_weekly <- ts(rick_morty_en, frequency = 7)
 tsdisplay(rick_morty_en_weekly)
@@ -120,7 +123,7 @@ summary(xreg.fit)
 checkresiduals(xreg.fit) #white noise
 ```
 
-###Prediction from Xreg
+### Prediction from Xreg
 ```{r}
 xreg <- forecast(xreg.fit,h,xreg=en_weekly_test_trans)
 xreg2 <- append(weekly_train[385],xreg$mean)
@@ -133,11 +136,11 @@ xreg <- accuracy(xregmean2,es_weekly_test)
 
 ```
 
-
-##VARMA model
+ 
+## VARMA model
 ```{r}
-library(vars)
-data <- cbind(diff(weekly_train),diff(en_weekly_train_trans))
+
+data <- cbind(diff(weekly_train),en_weekly_train_trans)
 VARselect(data,type = 'both')
 var.fit <- VAR(data,p=7,type = 'both')
 var.fit
@@ -159,7 +162,7 @@ var <- accuracy(varmean,es_weekly_test)
 ```
 
 
-##Naive method
+## Naive method
 ```{r}
 naive <- naive(weekly_train,h)
 autoplot(naive)
@@ -178,18 +181,16 @@ snaiveacc <- accuracy(snaivemean,es_weekly_test)
 ```
 
 
-##Holt-Winter
+## Holt-Winter
 ```{r}
 hw1 <- hw(weekly_train,h,seasonal = 'additive', damped = TRUE)
 hw2 <- hw(weekly_train,h,seasonal = 'multi', damped = TRUE)
 hw3 <- hw(weekly_train,h,seasonal = 'addi', damped = FALSE)
 hw4 <- hw(weekly_train,h,seasonal = 'multi', damped = FALSE)
-hw5 <- hw(weekly_train,h,seasonal = 'multi', damped = FALSE, exponential = TRUE)
 summary(hw1) #-1266.789
 summary(hw2) #-1278.316 
 summary(hw3) #-1279.266 choose this one
 summary(hw4) #-1256.880
-summary(hw5) #-1273.740  
 checkresiduals(hw3) #failed
 autoplot(hw3)
 
@@ -198,20 +199,37 @@ autoplot(hwmean) + autolayer(es_weekly_test)
 hwacc <- accuracy(hwmean,es_weekly_test) #276.3999
 ```
 
-##TBATS
+## ETS
 ```{r}
-tbats(weekly_train)
+ets <- ets(weekly_train, model = 'ZZA') #AAA
+summary(ets) #AIC -1279.266 
+checkresiduals(ets) #failed
+autoplot(ets)
+
+etsfit <- forecast(ets,h)
+autoplot(etsfit) 
+etsmean <- InvBoxCox(etsfit$mean,lambda_weekly)
+autoplot(etsmean)+autolayer(es_weekly_test)
+sqrt(sum((es_weekly_test-etsmean)^2)/h) #276.3999
+etsacc <- accuracy(etsmean,es_weekly_test)
+```
+Same as holt-winter
+
+## TBATS
+```{r}
+tbats(weekly_train) #AIC -1301.029
 ```
 
 
 
-##Fourier & harmonic
+## Fourier & harmonic
 ```{r}
 #install.packages('fpp2')
 library(fpp2)
 harmonics <- fourier(weekly_train, K=3)
 fit <- auto.arima(weekly_train,xreg=harmonics,seasonal = FALSE)
 summary(fit) #aic -2498.96
+checkresiduals(fit)
 
 newharmonics <- fourier(weekly_train, K=3,h)
 harmonicfit <- forecast(fit,h,xreg = newharmonics)
@@ -225,17 +243,28 @@ harmonic <- accuracy(harmonicmean,es_weekly_test)
 
 
 
-#Comparasion
+# Comparasion
 ```{r}
-comparasion <- rbind(Auto = auto, Arima = arima,Xreg = xreg, VAR = var, Naive = naiveacc, SNaive = snaiveacc, harmonic,hwacc)
-comparasion <- as.data.frame(comparasion, row.names = c('AutoArima','Arima212','Regression with En','VAR','Naive','SNaive','Dynamic Harmonic','Holt-Winters'))
+comparasion <- rbind(Auto = auto, Arima = arima,Xreg = xreg, VAR = var, Naive = naiveacc, SNaive = snaiveacc, harmonic,hwacc, etsacc)
+comparasion <- as.data.frame(comparasion, row.names = c('AutoArima','Arima212','Regression with En','VAR','Naive','SNaive','Dynamic Harmonic','Holt-Winters','ETS'))
 comparasion
 
 ```
 
 
 
+# Choose Dynamic Harmonic and Forecasting 
+```{r}
+lambda <- BoxCox.lambda(rick_morty_es_weekly)
+es_trans <- BoxCox(rick_morty_es_weekly,lambda)
+harmonics_es <- fourier(es_trans, K=3)
+fit_es <- auto.arima(es_trans,xreg=harmonics_es,seasonal = FALSE)
 
+newharmonics_es <- fourier(es_trans, K=3,30)
+fit30 <- forecast(fit_es,30,xreg = newharmonics_es)
+autoplot(fit30) 
+
+```
 
 
 
