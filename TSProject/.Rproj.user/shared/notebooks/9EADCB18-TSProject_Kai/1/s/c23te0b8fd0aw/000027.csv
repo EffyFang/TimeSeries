@@ -1,4 +1,0 @@
-"0","autoplot(pred$mean, include = 10)+
-  autolayer(kidney_transformed_test,series = ""tbats"", color = ""red"")
-"
-"2","Ignoring unknown parameters: include"

@@ -1,4 +1,0 @@
-"0","append_lambda = BoxCox.lambda(append_train_weekly)"
-"0","append_transformed_train = BoxCox(append_train_weekly, lambda = append_lambda)"
-"0","autoplot(append_train_weekly)+"
-"0","  autolayer(append_test_weekly)"
