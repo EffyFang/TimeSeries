@@ -1,7 +1,0 @@
-"0","## use log rather than auto lambda"
-"0","append_weekly = ts(append, frequency = 7)"
-"0","kidney_weekly = ts(kidney, frequency = 7)"
-"0","append_train_weekly = window(append_weekly, start = c(1,1), end = c(112,7))"
-"0","append_test_weekly  = window(append_weekly, start = c(113,1), end = c(115,5))"
-"0","kidney_train_weekly = window(kidney_weekly, start = c(1,1), end = c(112,7))"
-"0","kidney_test_weekly  = window(kidney_weekly, start = c(113,1), end = c(115,5))"

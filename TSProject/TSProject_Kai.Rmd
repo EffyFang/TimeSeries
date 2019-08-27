@@ -20,7 +20,7 @@ library(forecast)
 library(tseries)
 library(vars)
 library(MASS)
-
+library(fpp2)
 ```
 
 
@@ -34,12 +34,15 @@ kidney = as.numeric(df1[,3])
 
 ```
 
+
+
 ```{r}
-Acf(append)
+ts.plot(kidney)
 Acf(kidney)
 ```
 
 
+##
 ```{r}
 
 ## use log rather than auto lambda
@@ -54,6 +57,15 @@ append_test_weekly  = window(append_weekly, start = c(113,1), end = c(115,5))
 kidney_train_weekly = window(kidney_weekly, start = c(1,1), end = c(112,7))
 kidney_test_weekly  = window(kidney_weekly, start = c(113,1), end = c(115,5))
 
+
+kidney_diff_train = window(diff(kidney_weekly), start = c(1,2), end = c(112,7))
+kidney_diff_test = window(diff(kidney_weekly), start = c(113,1), end = c(115,5))
+
+
+append_diff_train = window(diff(append_weekly), start = c(1,2), end = c(112,7))
+append_diff_test = window(diff(append_weekly), start = c(113,1), end = c(115,5))
+
+
 ```
 
 
@@ -62,26 +74,16 @@ kidney_test_weekly  = window(kidney_weekly, start = c(113,1), end = c(115,5))
 
 append_lambda = BoxCox.lambda(append_train_weekly)
 append_transformed_train = BoxCox(append_train_weekly, lambda = append_lambda)
-
-
-autoplot(append_train_weekly)+
-  autolayer(append_test_weekly)
-
 append_transformed_test = BoxCox(append_test_weekly, lambda = append_lambda)
-
-autoplot(append_transformed_train)+
-  autolayer(append_transformed_test)
 
 ```
 
 
 
 ```{r}
-Acf(kidney)
 
 kidney_lambda = BoxCox.lambda(kidney_train_weekly)
 kidney_transformed_train = BoxCox(kidney_train_weekly, lambda = kidney_lambda)
-
 
 autoplot(kidney_train_weekly)+
   autolayer(kidney_test_weekly)
@@ -94,11 +96,6 @@ autoplot(kidney_transformed_train)+
 ```
 
 
-```{r}
-Acf(append_transformed_train)
-#Acf(append_transformed_train)
-```
-
 
 ```{r}
 adf.test(append_transformed_train) # small
@@ -108,8 +105,9 @@ adf.test(diff(append_transformed_train)) # small
 kpss.test(diff(append_transformed_train)) # level is not stationary  big
 plot(diff(append_transformed_train))
 
+adf.test(diff(append_train_weekly)) # small
+kpss.test(diff(append_train_weekly)) # level is not stationary  big
 
-#plot(decompose(append_transformed_train, type="multiplicative"))
 ```
 
 
@@ -120,19 +118,20 @@ kpss.test(kidney_transformed_train) # level is not stationary
 
 adf.test(diff(diff(kidney_transformed_train)))
 kpss.test(diff(diff(kidney_transformed_train)))
-
 plot(diff(kidney_transformed_train))
 
+adf.test(diff(kidney_train_weekly)) # small
+kpss.test(diff(kidney_train_weekly)) # level is not stationary  big
 
-#plot(decompose(kidney_train_weekly, type="multiplicative"))
+
 ```
 
 
 
 ```{r}
-ts.plot(diff(append_transformed_train))
-acf(diff(append_transformed_train))
-pacf(diff(append_transformed_train))
+ts.plot(diff(kidney_transformed_train))
+acf(diff(kidney_transformed_train))
+pacf(diff(kidney_transformed_train))
 ```
 
 
@@ -146,11 +145,11 @@ arima_atuo_kidney
 checkresiduals(arima_atuo_kidney)
 
 pred = forecast(arima_atuo_kidney, h = 19)
-inv_pred = InvBoxCox(pred$mean, lambda = append_lambda)
-accuracy(inv_pred, append_test_weekly)
-
+inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
+acc_atuo = accuracy(inv_pred, kidney_test_weekly)
+acc_atuo
 autoplot(inv_pred, include = 100)+
-  autolayer(append_test_weekly,series = "SARIMA", color = "red")
+  autolayer(kidney_test_weekly,series = "SARIMA", color = "red")
 
 
 ```
@@ -172,78 +171,11 @@ checkresiduals(arima_kidney)
 
 pred = forecast(arima_kidney, h = 19)
 inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
-accuracy(inv_pred, kidney_test_weekly)
+acc_arima = accuracy(inv_pred, kidney_test_weekly)
+acc_arima
 
 autoplot(inv_pred, include = 100)+
   autolayer(kidney_test_weekly,series = "SARIMA", color = "red")
-
-
-```
-
-
-
-
-
-```{r}
-
-arima_auto_append = auto.arima(append_transformed_train, d = 1,  seasonal = TRUE)
-arima_auto_append
-
-arima_auto_append
-
-checkresiduals(arima_auto_append)
-
-pred = forecast(arima_auto_append, h = 19)
-inv_pred = InvBoxCox(pred$mean, lambda = append_lambda)
-accuracy(inv_pred, append_test_weekly)
-
-autoplot(inv_pred, include = 100)+
-  autolayer(append_test_weekly,series = "SARIMA", color = "red")
-
-
-```
-
-
-```{r}
-eacf(append_transformed_train)
-```
-
-
-
-```{r}
-
-arima_append = Arima(append_transformed_train, order = c(2,1,1), seasonal = c(2, 0, 1))
-arima_append
-
-
-# Ljung-Box big
-checkresiduals(arima_append)
-
-pred = forecast(arima_append, h = 19)
-inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
-accuracy(inv_pred, kidney_test_weekly)
-
-autoplot(inv_pred, include = 100)+
-  autolayer(kidney_test_weekly,series = "SARIMA", color = "red")
-
-
-```
-
-```{r}
-
-
-tbats_append = tbats(append_train_weekly)
-tbats_append
-checkresiduals(tbats_append)
-
-
-pred = forecast(tbats_append, h = 19)
-accuracy(pred, append_test_weekly)
-
-
-autoplot(pred$mean, include = 100)+
-  autolayer(append_test_weekly,series = "tbats", color = "red")
-
 
 
 ```
@@ -259,8 +191,9 @@ checkresiduals(tbats_kidney)
 
 
 pred = forecast(tbats_kidney, h = 19)
-accuracy(pred, kidney_test_weekly)
 
+acc_tbats = accuracy(pred, kidney_test_weekly)
+acc_tbats
 
 autoplot(pred$mean, include = 100)+
   autolayer(kidney_test_weekly,series = "tbats", color = "red")
@@ -270,78 +203,106 @@ autoplot(pred$mean, include = 100)+
 
 
 
-
-
-
 ```{r}
-# use partial lag, lag = 0.111  TBATS
+model_arfima = arfima(kidney_transformed_train)
+summary(model_arfima) 
+checkresiduals(model_arfima)
+
+pred = forecast(model_arfima, h = 19)
+inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
+
+acc_arfima = accuracy(inv_pred, kidney_test_weekly)
+acc_arfima
+
+autoplot(inv_pred, include = 10)+
+  autolayer(kidney_test_weekly,series = "ARFIMA", color = "red")
 
 ```
 
 
-
-```{r}
-arfima()
-tbats()
-```
-
-
 ```{r}
 
-model_xreg = auto.arima(append_transformed_train, xreg = diff(kidney_transformed_train), d = 1)
+model_xreg = auto.arima(kidney_transformed_train, xreg = append_transformed_train  ,seasonal = TRUE)
 model_xreg
+
 checkresiduals(model_xreg)
 
-pred = forecast(model_xreg, xre = kidney_transformed_test, h = 19)
-                
+pred = forecast(model_xreg, xreg = append_transformed_test, h = 19)
+inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
 
-inv_pred = InvBoxCox(pred$mean, lambda = append_lambda)
-accuracy(inv_pred, append_test_weekly)
 
-autoplot(inv_pred, include = 100)+
-  autolayer(append_test_weekly,series = "SARIMA", color = "red")
+acc_xreg = accuracy(inv_pred, kidney_test_weekly)
+acc_xreg
+
+autoplot(inv_pred, include = 10)+
+  autolayer(kidney_test_weekly,series = "XREG", color = "red")
 
 
 ```
 
 
-
 ```{r}
-summary(ses(jia1))
+
+harmonics = fourier(kidney_transformed_train, K =3)
+model_fourier = auto.arima(kidney_transformed_train, xreg = harmonics, seasonal = FALSE)
+
+checkresiduals(model_fourier)
+summary(model_fourier)
+
+new_harmonics = fourier(kidney_transformed_train, K =3, h = 19)
+pred = forecast(model_fourier, xreg = new_harmonics)
+
+inv_pred = InvBoxCox(pred$mean, lambda = kidney_lambda)
+acc_fourier = accuracy(inv_pred, kidney_test_weekly)
+acc_fourier
+
+
+autoplot(inv_pred, include = 10)+
+  autolayer(kidney_test_weekly,series = "SARIMA", color = "red")
 ```
 
-```{r}
-library(fpp2)
-harmonics = fourier(shen_train_weekly, K =2)
-fit = auto.arima(lan_train_weekly, xreg = harmonics, seasonal = FALSE)
-
-new_harmonics = fourier(shen_train_weekly, K =2, h = 12)
-pred = forecast(fit, xreg = new_harmonics)
-
-accuracy(pred, shen_test_weekly)
-
-autoplot(pred, include = 10)+
-  autolayer(shen_test_weekly,series = "SARIMA", color = "red")
-```
-
 
 
 ```{r}
+# VAR model
 
-
-var_data = window(ts.union(shen_train_weekly, lan_train_weekly))
-
+var_data = window(ts.union(diff(kidney_transformed_train), diff(append_transformed_train)))
 
 model_var = VAR(y = var_data, p = 2)
-pred = predict(model_var, h = 12)
-pred_shen = pred$fcst$shen_train_weekly[,1]
-pred_shen = ts(pred_shen, start = c(114, 1), end = c(115,5), frequency = 7)
-autoplot(pred_shen, include = 100)+
-  autolayer(shen_test_weekly,series = "SARIMA", color = "red")
+model_var
+
+pred = forecast(model_var, h = 19)
+pred_kidney = pred$forecast$diff.kidney_transformed_train.$mean
+pred_kidney = ts(pred_kidney, start = c(113,1), end = c(115,5), frequency = 7)
+
+act_pred = append(kidney_transformed_train[784],pred_kidney)
+act_pred = cumsum(act_pred)
+act_pred = act_pred[2:20]
+inv_pred = InvBoxCox(act_pred, lambda = kidney_lambda)
+inv_pred = ts(inv_pred, start = c(113,1), end = c(115,5), frequency = 7)
+accuracy(inv_pred, kidney_test_weekly)
 
 
-pred_lan = pred$fcst$lan_train_weekly[,1]
-pred_lan = ts(pred_lan, start = c(114, 1), end = c(115,5), frequency = 7)
-autoplot(pred_lan)+
-  autolayer(lan_test_weekly,series = "SARIMA", color = "red")
+autoplot(inv_pred, include = 100)+
+  autolayer(kidney_test_weekly,series = "SARIMA", color = "red")
+
 ```
+
+
+```{r}
+aicc <- cbind(auto_arima=arima_atuo_kidney$aicc, model_Arima=arima_kidney$aicc, TBATS = tbats_kidney$AIC,
+              model_arfima=summary(model_arfima)$aic, fourier = model_fourier$aicc , xreg=model_xreg$aicc) 
+aicc
+sort(aicc)
+
+rmse <- c(auto_arima=acc_atuo[,2], model_Arima=acc_arima[,2], TBATS = acc_tbats[,2],
+              model_arfima=acc_arfima[,2], fourier = acc_fourier[,2] , xreg=acc_xreg[,2])
+rmse 
+
+data <- rbind(aicc,rmse)
+comparison <- as.data.frame(t(data),row.name=c('Auto_arima','SARIMA','TBATS','ARFIMA','Fourier', 'Regression with arima error'))
+colnames(comparison)<-c('AICC', 'RMSE')
+comparison[order(comparison$RMSE),]
+```
+
+
