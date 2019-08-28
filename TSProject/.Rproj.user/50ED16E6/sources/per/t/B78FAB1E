@@ -7,14 +7,14 @@
     "folds" : "",
     "hash" : "2490257594",
     "id" : "B78FAB1E",
-    "lastKnownWriteTime" : 1565733550,
-    "last_content_update" : 1566943251290,
+    "lastKnownWriteTime" : 1566950905,
+    "last_content_update" : 1566950905145,
     "path" : "~/GitHub/TimeSeries-Project/TSProject/TSProject.Rmd",
     "project_path" : "TSProject.Rmd",
     "properties" : {
         "chunk_output_type" : "inline",
-        "cursorPosition" : "37,59",
-        "scrollLine" : "0",
+        "cursorPosition" : "179,30",
+        "scrollLine" : "150",
         "tempName" : "Untitled1"
     },
     "relative_order" : 1,
