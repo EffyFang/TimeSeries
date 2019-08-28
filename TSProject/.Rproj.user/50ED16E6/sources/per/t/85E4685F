@@ -1,0 +1,24 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1566245183488.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1580323819",
+    "id" : "85E4685F",
+    "lastKnownWriteTime" : 1566947839,
+    "last_content_update" : 1566947839378,
+    "path" : "~/GitHub/TimeSeries-Project/TSProject/TSProject_Kai.Rmd",
+    "project_path" : "TSProject_Kai.Rmd",
+    "properties" : {
+        "cursorPosition" : "19,17",
+        "last_setup_crc32" : "",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

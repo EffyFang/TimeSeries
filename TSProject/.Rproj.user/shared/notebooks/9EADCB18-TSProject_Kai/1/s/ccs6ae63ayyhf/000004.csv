@@ -1,4 +1,0 @@
-"0","kidney_lambda = BoxCox.lambda(kidney_train_weekly)"
-"0","kidney_transformed_train = BoxCox(kidney_train_weekly, lambda = kidney_lambda)"
-"0","autoplot(kidney_train_weekly)+"
-"0","  autolayer(kidney_test_weekly)"
